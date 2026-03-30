@@ -24,7 +24,7 @@
         </inertia>
       </inertial>
       <collision name='base_link_collision'>
-        <pose>0 0 0 1.5700000000000001 -5.5511151231257827e-17 1.5700000000000001</pose>
+        <pose>0 0 0 1.5700000000000001 -5.5511151231257827e-17 -1.5700000000000001</pose>
         <geometry>
           <mesh>
             <scale>1 1 1</scale>
@@ -681,7 +681,8 @@
       <right_joint>rear_right_wheel</right_joint>
       <wheel_separation>0.451</wheel_separation>
       <wheel_radius>0.08</wheel_radius>
-      <max_linear_acceleration>0.8</max_linear_acceleration>
+      <max_linear_acceleration>3.0</max_linear_acceleration>
+      <min_linear_acceleration>-3.0</min_linear_acceleration>
       <topic>cmd_vel</topic>
       <odom_topic>odom</odom_topic>
       <frame_id>odom</frame_id>
