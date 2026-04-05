@@ -1,0 +1,53 @@
+<?xml version="1.0" ?>
+<robot name="create3" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:arg name="gazebo" default="ignition" />
+  <xacro:arg name="namespace" default="" />
+
+  <xacro:include filename="$(find irobot_create_description)/urdf/create3.urdf.xacro" />
+
+  <link name="lidar_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.04"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.04"/>
+      </geometry>
+    </collision>
+    <xacro:inertial_dummy/>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.0 0.0 0.1" rpy="0 0 0"/> 
+  </joint>
+
+  <gazebo reference="lidar_link">
+    <xacro:ray_sensor 
+      sensor_name="gpu_lidar" 
+      gazebo="$(arg gazebo)" 
+      update_rate="10.0" 
+      visualize="true" 
+      h_samples="90" 
+      h_res="1.0" 
+      h_min_angle="-3.14159" 
+      h_max_angle="3.14159" 
+      r_min="0.12" 
+      r_max="1.0" 
+      r_res="0.01">
+      
+      <plugin/> 
+      
+    </xacro:ray_sensor>
+  </gazebo>
+
+</robot>
