@@ -6,6 +6,7 @@
 
   <xacro:include filename="$(find irobot_create_description)/urdf/create3.urdf.xacro" />
 
+  <!-- lidar addition -->
   <link name="lidar_link">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -13,7 +14,7 @@
         <cylinder radius="0.035" length="0.04"/>
       </geometry>
       <material name="black">
-        <color rgba="0.1 0.1 0.1 1"/>
+        <color rgba="0.0 0.0 0.0 1"/>
       </material>
     </visual>
     <collision>
@@ -32,22 +33,36 @@
   </joint>
 
   <gazebo reference="lidar_link">
-    <xacro:ray_sensor 
-      sensor_name="gpu_lidar" 
-      gazebo="$(arg gazebo)" 
-      update_rate="10.0" 
-      visualize="true" 
-      h_samples="90" 
-      h_res="1.0" 
-      h_min_angle="-3.14159" 
-      h_max_angle="3.14159" 
-      r_min="0.12" 
-      r_max="1.0" 
-      r_res="0.01">
-      
-      <plugin/> 
-      
-    </xacro:ray_sensor>
+    <sensor name="gpu_lidar" type="gpu_lidar">
+      <update_rate>10.0</update_rate>
+      <visualize>true</visualize>
+      <always_on>true</always_on>
+      <topic>scan</topic>
+      <gz_frame_id>lidar_link</gz_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>90</samples>
+            <resolution>1.0</resolution>
+            <min_angle>-3.1415</min_angle>
+            <max_angle>3.1415</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.12</min>
+          <max>2.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </lidar>
+    </sensor>
   </gazebo>
 
+  <!-- ground truth odometry -->
+  <gazebo>
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>odom</odom_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <tf_topic>tf</tf_topic> 
+    </plugin>
+  </gazebo>
 </robot>
