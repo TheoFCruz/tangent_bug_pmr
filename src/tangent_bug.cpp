@@ -1,9 +1,13 @@
-#include <cmath>
 #include <rclcpp/rclcpp.hpp>
+
+#include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/twist.hpp>
-#include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/point.hpp>
+
 #include <eigen3/Eigen/Dense>
+
+#include <cmath>
 #include <vector>
 
 class TangentBug : public rclcpp::Node
@@ -13,38 +17,49 @@ public:
   : Node("tangent_bug")
   {
     // publishes and subscribers
-    laser_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+    laser_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
       "/scan",
       rclcpp::SensorDataQoS(),
       std::bind(&TangentBug::laserCallback, this, std::placeholders::_1)
     );
 
-    odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+    odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
       "/odom",
       10,
       std::bind(&TangentBug::odomCallback, this, std::placeholders::_1)
     );
 
-    cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(
+    goal_sub = this->create_subscription<geometry_msgs::msg::Point>(
+      "/goal",
+      10,
+      std::bind(&TangentBug::goalCallback, this, std::placeholders::_1)
+    );
+
+    cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>(
       "/cmd_vel",
       10
     );
 
     // timer for the control loop
-    control_timer_ = this->create_wall_timer(
+    control_timer = this->create_wall_timer(
       std::chrono::milliseconds(100),
-      std::bind(&TangentBug::timerCallback, this)
+      std::bind(&TangentBug::controlLoop, this)
     );
 
     RCLCPP_INFO(this->get_logger(), "Tangent bug node started.");
   }
 
 private:
+
+  // ---------------------- Callbacks -------------------------
+  
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   {
+    // clear old points
     laser_points.clear();
 
-    Eigen::Rotation2Dd r_yaw(robot_yaw);
+    // used for robot -> map reference
+    Eigen::Rotation2Dd r_yaw = Eigen::Rotation2Dd(robot_yaw); 
 
     double current_angle = msg->angle_min;
     for (size_t i = 0; i < msg->ranges.size(); i++)
@@ -86,14 +101,29 @@ private:
     robot_yaw = std::atan2(siny_cosp, cosy_cosp);
   }
 
-  void timerCallback()
+  void goalCallback(geometry_msgs::msg::Point::SharedPtr msg)
   {
-    auto twist = geometry_msgs::msg::Twist();
+    RCLCPP_INFO(this->get_logger(), "Received goal: (%.2lf, %.2lf)", msg->x, msg->y);
+    goal = Eigen::Vector2d(msg->x, msg->y);
+    goal_received = true;
+  }
+
+  void controlLoop()
+  {
+    if (!goal_received) return;
 
     // TODO: implement Tangent Bug logic here using last_scan_
     // 
     // check if line to goal intercepts known obstacle
     //   if it doesn't, send velocity in the goal direction and return
+    
+    if (isGoalClear())
+    {
+      Eigen::Vector2d vel = goal - robot_pos;
+      vel = vel.normalized() * SPEED;
+      sendVelocity(vel);
+    } 
+
     // get discontinuity points 
     // calculate the heuristic to determine the best discontinuity point
     // compare d_reach to d_followed
@@ -103,22 +133,78 @@ private:
     //   send velocity towards best discontinuity point
     // behavior 2 (boundary follow):
     //   send velocity towards the next discontinuity point 
-
-    // before publishing, process velocity (feedback linearization and safe distance)
-    cmd_vel_pub_->publish(twist);
+    
+    // check if goal reached
+    if ((robot_pos - goal).norm() <= TOLERANCE)
+    {
+      RCLCPP_INFO(this->get_logger(), "Goal reached. Stopping control loop");
+      goal_received = false;
+    }
   }
 
-  // variables
-  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub_;
-  rclcpp::TimerBase::SharedPtr                                 control_timer_;
+  // ----------------- Utility Functions ----------------------
+  
+  bool isGoalClear()
+  {
+    Eigen::Vector2d goal_dir = (goal - robot_pos).normalized();
+    double goal_dist = (goal-robot_pos).norm();
 
+    Eigen::Vector2d robot_to_obst = {0,0};
+    for (const auto& point : laser_points)
+    {
+      robot_to_obst = point - robot_pos;
+      double projection = robot_to_obst.dot(goal_dir); // obstacle dist in the dir of the goal
+      
+      // skip obstacles behind robot and after goal
+      if (projection <= 0 || projection > goal_dist) continue; 
+
+      double normal_dist = (robot_to_obst - projection*goal_dir).norm();
+      if (normal_dist <= SAFE_RADIUS) return false;
+    }
+    return true;
+  }
+
+  void sendVelocity(Eigen::Vector2d vel)
+  {
+    double v_x = vel.x();
+    double v_y = vel.y();
+
+    // feedback linearization
+    double v = (v_x * std::cos(robot_yaw)) + (v_y * std::sin(robot_yaw));
+    double w = (-v_x * std::sin(robot_yaw) + v_y * std::cos(robot_yaw)) / D;
+
+    // ros2 msg
+    geometry_msgs::msg::Twist vel_twist;
+    vel_twist.linear.x = v;
+    vel_twist.angular.z = w;
+
+    cmd_vel_pub->publish(vel_twist);
+  }
+
+  // --------------------- Variables --------------------------
+  
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
+  rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr   goal_sub;
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
+  rclcpp::TimerBase::SharedPtr                                 control_timer;
+
+  // laser points vector
   std::vector<Eigen::Vector2d> laser_points; 
 
+  // robot and goal variables
   Eigen::Vector2d goal;
   Eigen::Vector2d robot_pos;
   double          robot_yaw;
+
+  // flags
+  bool goal_received = false;
+
+  // consts
+  const double SPEED = 0.5;
+  const double SAFE_RADIUS = 0.25;
+  const double D = 0.1;
+  const double TOLERANCE = 0.1;
 };
 
 int main(int argc, char ** argv)
