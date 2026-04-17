@@ -52,7 +52,7 @@ public:
 private:
 
   // ---------------------- Callbacks -------------------------
-  
+
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   {
     // clear old points
@@ -130,6 +130,8 @@ private:
     last_heuristic = 1e9;
     d_reach = 1e9;
     d_followed = 1e9;
+    check_unreachable = false;
+    out_of_min_dist = false;
   }
 
   void controlLoop()
@@ -158,7 +160,7 @@ private:
       case State::MOTION_TO_GOAL:
         sendVelocity((result_point - robot_pos).normalized()*SPEED);
 
-        if (result_cost > last_heuristic + 0.01)
+        if (result_cost > last_heuristic + 0.05)
         {
           // found local minimum
           RCLCPP_INFO(this->get_logger(), "Found local minimum, switching to boundary following mode.");
@@ -176,53 +178,75 @@ private:
           } else {
             boundary_direction = -1;
           }
+
+          // start checking for unreachable goal
+          if (!check_unreachable)
+          {
+            unreachable_start = robot_pos;
+            check_unreachable = true;
+            out_of_min_dist = false;
+          }
+
         } else {
           last_heuristic = result_cost;
         }
         break;
 
       case State::BOUNDARY_FOLLOWING:
-      {
-        if (laser_points.empty()) break;
-
-        // calculate direction for wall-following
-        Eigen::Vector2d to_obstacle = closest_point - robot_pos;
-        double dist = to_obstacle.norm();
-
-        // tangent direction based on chosen boundary direction
-        Eigen::Vector2d tangent(-to_obstacle.y(), to_obstacle.x());
-        tangent.normalize();
-
-        // correct boundary direction
-        tangent = boundary_direction*tangent;
-
-        // distance correction to maintain safe radius
-        double dist_error = dist - SAFE_RADIUS;
-        Eigen::Vector2d correction = to_obstacle.normalized() * dist_error * 2.0;
-
-        // final boundary following velocity
-        Eigen::Vector2d boundary_vel = (tangent + correction).normalized() * SPEED;
-        sendVelocity(boundary_vel);
-
-        // check leave condition
-        if (result_cost < d_reach)
         {
-          RCLCPP_INFO(this->get_logger(), "Leave condition met! Returning to Motion-to-Goal.");
-          current_state = State::MOTION_TO_GOAL;
-          last_heuristic = result_cost; 
-        }
-        else
+          if (laser_points.empty()) break;
+
+          // check if goal is unreachable
+          if (!out_of_min_dist &&(robot_pos - unreachable_start).norm() > GOAL_UNREACHABLE_MIN_DIST)
+          { 
+            out_of_min_dist = true;
+            RCLCPP_INFO(this->get_logger(), "Checking if goal is unreachable.");
+          }
+          if (out_of_min_dist)
+          {
+            if ((robot_pos - unreachable_start).norm() <= GOAL_UNREACHABLE_TH)
+            {
+              RCLCPP_INFO(this->get_logger(), "Completed cycle, goal seems unreachable.");
+              current_state = State::MOTION_TO_GOAL;
+              sendVelocity(Eigen::Vector2d::Zero());
+              check_unreachable = false;
+              goal_received = false;
+            }
+          }
+
+          // tangent direction based on chosen boundary direction
+          Eigen::Vector2d to_obstacle = closest_point - robot_pos;
+          Eigen::Vector2d tangent(-to_obstacle.y(), to_obstacle.x());
+          tangent.normalize();
+          tangent = boundary_direction*tangent;
+
+          // distance correction to maintain safe radius
+          double dist_error = to_obstacle.norm() - SAFE_RADIUS;
+          Eigen::Vector2d correction = to_obstacle.normalized() * dist_error * 2.0;
+
+          // final boundary following velocity
+          Eigen::Vector2d boundary_vel = (tangent + correction).normalized() * SPEED;
+          sendVelocity(boundary_vel);
+
+          // check leave condition
+          if (result_cost < d_reach)
+          {
+            RCLCPP_INFO(this->get_logger(), "Leave condition met! Returning to Motion-to-Goal.");
+            current_state = State::MOTION_TO_GOAL;
+            last_heuristic = result_cost; 
+          }
+          else
         {
-          // update d_followed
-          d_followed = result_cost;
+            // update d_followed
+            d_followed = result_cost;
+          }
+          break;
         }
-        break;
-      }
     }
   }
 
   // ----------------- Utility Functions ----------------------
-  
+
   bool isGoalClear()
   {
     Eigen::Vector2d goal_dir = (goal - robot_pos).normalized();
@@ -233,7 +257,7 @@ private:
     {
       robot_to_obst = point - robot_pos;
       double projection = robot_to_obst.dot(goal_dir); // obstacle dist in the dir of the goal
-      
+
       // skip obstacles behind robot and after goal
       if (projection <= 0 || projection > goal_dist) continue; 
 
@@ -324,7 +348,7 @@ private:
     for (const auto& point : discontinuities)
     {
       double cost = (goal - point).norm() + (point - robot_pos).norm();
-      
+
       if (cost < min_cost)
       {
         best = point;
@@ -334,7 +358,7 @@ private:
 
     return {best, min_cost};
   }
-  
+
   // states
   enum class State {
     MOTION_TO_GOAL,
@@ -342,7 +366,7 @@ private:
   };
 
   // --------------------- Variables --------------------------
-  
+
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr   goal_sub;
@@ -357,6 +381,7 @@ private:
   Eigen::Vector2d goal;
   Eigen::Vector2d robot_pos;
   double          robot_yaw;
+  bool goal_received = false;
 
   // state machine variables
   State   current_state = State::MOTION_TO_GOAL;
@@ -365,14 +390,18 @@ private:
   double  d_followed;
   double  last_heuristic;
 
-  // flags
-  bool goal_received = false;
+  // detect unreachable goal variables
+  Eigen::Vector2d unreachable_start;
+  bool            check_unreachable = false;
+  bool            out_of_min_dist = false;  
 
   // consts
   const double SPEED = 0.5;
-  const double SAFE_RADIUS = 0.5;
+  const double SAFE_RADIUS = 0.6;
   const double D = 0.05;
   const double TOLERANCE = 0.05;
+  const double GOAL_UNREACHABLE_TH= 0.3;
+  const double GOAL_UNREACHABLE_MIN_DIST= 0.5;
 };
 
 int main(int argc, char ** argv)
