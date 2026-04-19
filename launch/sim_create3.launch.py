@@ -35,15 +35,6 @@ def generate_launch_description():
         )
     )
 
-    # Inicializando o RViz2 como um Nó
-    rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config_path] # O argumento '-d' indica o caminho do config
-    )
-
     ld = LaunchDescription()
 
     # Arguments
@@ -52,6 +43,5 @@ def generate_launch_description():
     # Nodes and launches
     ld.add_action(gazebo)
     ld.add_action(spawn)
-    ld.add_action(rviz)
 
     return ld

@@ -39,6 +39,7 @@ install(DIRECTORY
   description
   config
   worlds
+  maps
   DESTINATION share/${PROJECT_NAME}
 )
 
