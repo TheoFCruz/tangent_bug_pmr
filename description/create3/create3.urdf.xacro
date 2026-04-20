@@ -4,7 +4,7 @@
   <xacro:arg name="gazebo" default="ignition" />
   <xacro:arg name="namespace" default="" />
 
-  <xacro:include filename="$(find tangent_bug_pmr)/description/create3/create3_base.urdf.xacro"/>
+  <xacro:include filename="$(find pmr_tp1)/description/create3/create3_base.urdf.xacro"/>
 
   <!-- lidar addition -->
   <link name="lidar_link">

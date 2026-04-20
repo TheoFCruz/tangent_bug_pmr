@@ -135,7 +135,7 @@
   <xacro:if value="${'$(arg gazebo)' == 'ignition'}">
     <gazebo>
       <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-        <parameters>$(find tangent_bug_pmr)/config/control.yaml</parameters>
+        <parameters>$(find pmr_tp1)/config/control.yaml</parameters>
         <ros>
           <remapping>~/odom:=wheel_odom</remapping>
           <remapping>/tf:=tf</remapping>
