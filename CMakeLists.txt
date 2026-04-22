@@ -15,12 +15,12 @@ find_package(eigen3_cmake_module REQUIRED)         # Odometry
 
 find_package(Eigen3 REQUIRED)
 
-# Executable
+# Executables
 include_directories(include)
+
 add_executable(tangent_bug
   src/tangent_bug.cpp
 )
-
 ament_target_dependencies(tangent_bug
   rclcpp
   sensor_msgs
@@ -29,8 +29,20 @@ ament_target_dependencies(tangent_bug
   Eigen3
 )
 
+add_executable(parametric_curve
+  src/parametric_curve.cpp
+)
+ament_target_dependencies(parametric_curve
+  rclcpp
+  geometry_msgs
+  nav_msgs
+  Eigen3
+)
+
 # Install
-install(TARGETS tangent_bug
+install(TARGETS 
+  tangent_bug
+  parametric_curve
   DESTINATION lib/${PROJECT_NAME}
 )
 

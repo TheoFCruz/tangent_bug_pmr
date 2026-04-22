@@ -185,7 +185,7 @@ class TangentBug : public rclcpp::Node
 
         case State::BOUNDARY_FOLLOWING:
           {
-            // get best discontinuity closest to the one it was following
+            // get discontinuity closest to the one it was following
             Eigen::Vector2d disc = result_point;
             double min_dist = 1e9;
             for (const auto& point : discontinuities)
