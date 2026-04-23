@@ -1,6 +1,8 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/point.hpp>
 
@@ -26,6 +28,13 @@ public:
       "/cmd_vel",
       10
     );
+
+    path_pub = this->create_publisher<nav_msgs::msg::Path>(
+      "/parametric_curve/path",
+      rclcpp::QoS(1).transient_local().reliable()
+    );
+
+    publishPath();
 
     // timer for the control loop
     control_timer = this->create_wall_timer(
@@ -88,6 +97,37 @@ private:
 
   // ------------------ Utility Functions ---------------------
 
+  void publishPath() {
+    nav_msgs::msg::Path path;
+    path.header.stamp = this->now();
+    path.header.frame_id = "odom";
+
+    double dt = (double)LOOP_DT_MS / 1000.0;
+    int num_samples = (int)std::ceil(T / dt);
+
+    path.poses.reserve(num_samples + 1);
+
+    for (int i = 0; i <= num_samples; ++i) {
+      double t = i * dt;
+      if (t > T) {
+        t = T;
+      }
+
+      Eigen::Vector2d point = getLamniscate(t);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header = path.header;
+      pose.pose.position.x = point.x();
+      pose.pose.position.y = point.y();
+      pose.pose.position.z = 0.0;
+      pose.pose.orientation.w = 1.0;
+
+      path.poses.push_back(pose);
+    }
+
+    path_pub->publish(path);
+  }
+
   void sendVelocity(Eigen::Vector2d vel)
   {
     double v_x = vel.x();
@@ -108,10 +148,11 @@ private:
   Eigen::Vector2d getLamniscate(double t)
   {
     double a = 3.0;
+    double theta = TRAJECTORY_FREQ * t;
 
     Eigen::Vector2d result;
-    result.x() = a*sqrt(2)*cos(0.2*t)/(sin(0.2*t)*sin(0.2*t) + 1);
-    result.y() = a*sqrt(2)*cos(0.2*t)*sin(0.2*t)/(sin(0.2*t)*sin(0.2*t) + 1);
+    result.x() = a*sqrt(2)*cos(theta)/(sin(theta)*sin(theta) + 1);
+    result.y() = a*sqrt(2)*cos(theta)*sin(theta)/(sin(theta)*sin(theta) + 1);
 
     return result;
   }
@@ -120,6 +161,7 @@ private:
 
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr            path_pub;
   rclcpp::TimerBase::SharedPtr                                 control_timer;
 
   // robot and goal
@@ -135,6 +177,9 @@ private:
   const double D = 0.05;
   const double VEL_GAIN = 3.0;
   const int    LOOP_DT_MS = 100;
+  const double PI = 3.14159265358979323846;
+  const double TRAJECTORY_FREQ = 0.1;
+  const double T = 2.0 * PI / TRAJECTORY_FREQ;
 };
 
 int main(int argc, char ** argv)
