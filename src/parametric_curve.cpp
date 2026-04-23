@@ -29,7 +29,7 @@ class ParametricCurve : public rclcpp::Node
 
       // timer for the control loop
       control_timer = this->create_wall_timer(
-          std::chrono::milliseconds(100),
+          std::chrono::milliseconds(LOOP_DT_MS),
           std::bind(&ParametricCurve::controlLoop, this)
           );
 
@@ -62,6 +62,36 @@ class ParametricCurve : public rclcpp::Node
       // TODO: Implement parametric curve control logic
     }
 
+    // ------------------ Utility Functions ---------------------
+
+    void sendVelocity(Eigen::Vector2d vel)
+    {
+      double v_x = vel.x();
+      double v_y = vel.y();
+
+      // feedback linearization
+      double v = (v_x * std::cos(robot_yaw)) + (v_y * std::sin(robot_yaw));
+      double w = (-v_x * std::sin(robot_yaw) + v_y * std::cos(robot_yaw)) / D;
+
+      // ros2 msg
+      geometry_msgs::msg::Twist vel_twist;
+      vel_twist.linear.x = v;
+      vel_twist.angular.z = w;
+
+      cmd_vel_pub->publish(vel_twist);
+    }
+
+    Eigen::Vector2d getLamniscate(double t)
+    {
+      double a = 1.0;
+
+      Eigen::Vector2d result;
+      result.x() = a*sqrt(2)*cos(t)/(sin(t)*sin(t) + 1);
+      result.y() = a*sqrt(2)*cos(t)*sin(t)/(sin(t)*sin(t) + 1);
+
+      return result;
+    }
+
     // --------------------- Variables --------------------------
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
@@ -72,6 +102,10 @@ class ParametricCurve : public rclcpp::Node
     Eigen::Vector2d goal;
     Eigen::Vector2d robot_pos;
     double          robot_yaw;
+
+    // consts
+    const double D = 0.05;
+    const int    LOOP_DT_MS = 100;
 };
 
 int main(int argc, char ** argv)
