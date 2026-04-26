@@ -16,7 +16,6 @@ def generate_launch_description():
 
     # filepaths
     world_path = PathJoinSubstitution([pmr_tp1_pkg, 'worlds', world_name])
-    rviz_config_path = PathJoinSubstitution([pmr_tp1_pkg, 'config', 'config.rviz'])
 
     # Start gazebo and spawn robot
     gazebo = IncludeLaunchDescription(

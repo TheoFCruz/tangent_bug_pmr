@@ -62,6 +62,7 @@ install(DIRECTORY
   launch
   description
   config
+  rviz
   worlds
   maps
   DESTINATION share/${PROJECT_NAME}

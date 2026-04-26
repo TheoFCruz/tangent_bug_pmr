@@ -5,16 +5,28 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
-    # Arguments
-    map_name = LaunchConfiguration('map')
-    declare_map = DeclareLaunchArgument('map', default_value='test_map.yaml', description='Name of the map file in the maps directory')
-
     # Packages
     pmr_tp1_pkg = FindPackageShare('pmr_tp1')
 
     # Filepaths
-    map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', map_name])
-    rviz_config_path = PathJoinSubstitution([pmr_tp1_pkg, 'config', 'config.rviz'])
+    default_map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'test_map.yaml'])
+    default_rviz_config_path = PathJoinSubstitution([pmr_tp1_pkg, 'config', 'config.rviz'])
+
+    # Arguments
+    map_path = LaunchConfiguration('map_path')
+    rviz_config_path = LaunchConfiguration('rviz_config_path')
+
+    declare_map_path = DeclareLaunchArgument(
+        'map_path',
+        default_value=default_map_path,
+        description='Path to the map YAML file'
+    )
+
+    declare_rviz_config_path = DeclareLaunchArgument(
+        'rviz_config_path',
+        default_value=default_rviz_config_path,
+        description='Path to the RViz configuration file'
+    )
 
     # Map Server
     map_server = Node(
@@ -63,7 +75,8 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     # Add arguments
-    ld.add_action(declare_map)
+    ld.add_action(declare_map_path)
+    ld.add_action(declare_rviz_config_path)
 
     # Add nodes
     ld.add_action(map_server)
