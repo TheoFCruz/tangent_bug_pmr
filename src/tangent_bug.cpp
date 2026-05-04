@@ -5,6 +5,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 #include <eigen3/Eigen/Dense>
 
@@ -38,6 +39,11 @@ public:
 
     cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>(
       "/cmd_vel",
+      10
+    );
+
+    discontinuities_pub = this->create_publisher<visualization_msgs::msg::Marker>(
+      "/discontinuities",
       10
     );
 
@@ -138,6 +144,7 @@ private:
 
     // get discontinuity points 
     std::vector<Eigen::Vector2d> discontinuities = getDiscontinuities();
+    publishDiscontinuities(discontinuities);
 
     // calculate the heuristic to determine the best discontinuity point
     Eigen::Vector2d result_point = calculateHeuristic(discontinuities);
@@ -178,7 +185,7 @@ private:
           current_state = State::BOUNDARY_FOLLOWING;
         }
         else
-      {
+        {
           d_followed = d_reach;
         }
         break;
@@ -323,7 +330,8 @@ private:
     if (laser_points.size() < 2) return laser_points;
 
     // compares the distance between one point and the next
-    const double THRESHOLD = 0.3;
+    const double THRESHOLD = 0.6;
+    const double MAX_DISCONTINUITY_RANGE = 7.0;
     std::vector<Eigen::Vector2d> discontinuities;
     for (size_t i = 0; i < laser_points.size() - 1; i++)
     {
@@ -341,9 +349,48 @@ private:
       discontinuities.push_back(laser_points[laser_points.size() - 1]);
     }
 
+    for (size_t i = 0; i < discontinuities.size();)
+    {
+      if ((discontinuities[i] - robot_pos).norm() > MAX_DISCONTINUITY_RANGE)
+      {
+        discontinuities.erase(discontinuities.begin() + i);
+      }
+      else i++;
+    }
+
     return discontinuities;
   }
 
+  void publishDiscontinuities(const std::vector<Eigen::Vector2d> &discontinuities)
+  {
+    visualization_msgs::msg::Marker marker;
+
+    marker.header.frame_id = "map";
+    marker.header.stamp = this->now();
+    marker.ns = "tangent_bug";
+    marker.id = 0;
+    marker.type = visualization_msgs::msg::Marker::POINTS;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+
+    marker.scale.x = 0.12;
+    marker.scale.y = 0.12;
+
+    marker.color.r = 1.0;
+    marker.color.g = 0.0;
+    marker.color.b = 0.0;
+    marker.color.a = 1.0;
+
+    for (const auto& discontinuity : discontinuities)
+    {
+      geometry_msgs::msg::Point point;
+      point.x = discontinuity.x();
+      point.y = discontinuity.y();
+      point.z = 0.0;
+      marker.points.push_back(point);
+    }
+
+    discontinuities_pub->publish(marker);
+  }
 
   Eigen::Vector2d getMPoint()
   {
@@ -399,6 +446,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr   goal_sub;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr discontinuities_pub;
   rclcpp::TimerBase::SharedPtr                                 control_timer;
 
   // laser points vector

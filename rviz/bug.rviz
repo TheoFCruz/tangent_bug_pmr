@@ -6,10 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Grid1
         - /TF1/Frames1
         - /Map1/Topic1
-        - /LaserScan1
       Splitter Ratio: 0.5
     Tree Height: 811
   - Class: rviz_common/Selection
@@ -276,6 +274,19 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: false
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Marker
+      Namespaces:
+        tangent_bug: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /discontinuities
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -331,7 +342,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 83.91291046142578
+      Scale: 70.23131561279297
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
       X: 0.6533870697021484
