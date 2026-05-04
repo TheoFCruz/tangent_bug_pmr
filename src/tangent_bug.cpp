@@ -330,12 +330,11 @@ private:
     if (laser_points.size() < 2) return laser_points;
 
     // compares the distance between one point and the next
-    const double THRESHOLD = 0.6;
     const double MAX_DISCONTINUITY_RANGE = 7.0;
     std::vector<Eigen::Vector2d> discontinuities;
     for (size_t i = 0; i < laser_points.size() - 1; i++)
     {
-      if ((laser_points[i] - laser_points[i+1]).norm() >= THRESHOLD)
+      if ((laser_points[i] - laser_points[i+1]).norm() >= DISC_THRESHOLD)
       {
         discontinuities.push_back(laser_points[i]);
         discontinuities.push_back(laser_points[i+1]);
@@ -343,12 +342,13 @@ private:
     }
 
     // compare first and last points
-    if ((laser_points[0] - laser_points[laser_points.size() - 1]).norm() >= THRESHOLD)
+    if ((laser_points[0] - laser_points[laser_points.size() - 1]).norm() >= DISC_THRESHOLD)
     {
       discontinuities.push_back(laser_points[0]);
       discontinuities.push_back(laser_points[laser_points.size() - 1]);
     }
 
+    // remove "infinite" ranges
     for (size_t i = 0; i < discontinuities.size();)
     {
       if ((discontinuities[i] - robot_pos).norm() > MAX_DISCONTINUITY_RANGE)
@@ -471,6 +471,7 @@ private:
   const double SPEED = 0.5;
   const double SAFE_RADIUS = 0.4;
   const double D = 0.05;
+  const double DISC_THRESHOLD = 0.6;
   const double TOLERANCE = 0.05;
   const double HYSTERESIS = 0.05;
   const double GOAL_UNREACHABLE_TH= 0.5;
