@@ -205,8 +205,8 @@ private:
             }
           }
 
-          // get d_reach
-          d_reach = (goal - disc).norm();
+          // follow it
+          sendVelocity((disc - robot_pos).normalized()*SPEED);
 
           // get d_reach
           Eigen::Vector2d current_best = getClosestObstToGoal();
