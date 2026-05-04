@@ -12,6 +12,7 @@ find_package(sensor_msgs REQUIRED)      # LaserScan
 find_package(geometry_msgs REQUIRED)    # Twist, Pose
 find_package(nav_msgs REQUIRED)         # Odometry 
 find_package(visualization_msgs REQUIRED)  # Marker
+find_package(std_srvs REQUIRED)         # SetBool
 find_package(eigen3_cmake_module REQUIRED)         # Odometry 
 
 find_package(Eigen3 REQUIRED)
@@ -38,6 +39,8 @@ ament_target_dependencies(parametric_curve
   rclcpp
   geometry_msgs
   nav_msgs
+  visualization_msgs
+  std_srvs
   Eigen3
 )
 

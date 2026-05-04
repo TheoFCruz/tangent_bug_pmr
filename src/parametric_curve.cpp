@@ -5,10 +5,15 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/point.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 #include <eigen3/Eigen/Dense>
 
+#include <chrono>
 #include <cmath>
+#include <functional>
+#include <memory>
 #include <vector>
 
 class ParametricCurve : public rclcpp::Node
@@ -32,6 +37,21 @@ public:
     path_pub = this->create_publisher<nav_msgs::msg::Path>(
       "/parametric_curve/path",
       rclcpp::QoS(1).transient_local().reliable()
+    );
+
+    followed_point_pub = this->create_publisher<visualization_msgs::msg::Marker>(
+      "/parametric_curve/followed_point",
+      10
+    );
+
+    start_srv = this->create_service<std_srvs::srv::SetBool>(
+      "/parametric_curve/start",
+      std::bind(
+        &ParametricCurve::startCallback,
+        this,
+        std::placeholders::_1,
+        std::placeholders::_2
+      )
     );
 
     publishPath();
@@ -68,6 +88,8 @@ private:
 
   void controlLoop()
   {
+    if (!active) return;
+
     // save start time if loop in first iteration
     if (is_first_iteration) {
       t_start = this->now();
@@ -82,8 +104,11 @@ private:
     tracking_pos.x() = robot_pos.x() + D * std::cos(robot_yaw);
     tracking_pos.y() = robot_pos.y() + D * std::sin(robot_yaw);
 
+    Eigen::Vector2d followed_point = getLamniscate(t);
+    publishFollowedPoint(followed_point);
+
     // get position error
-    Eigen::Vector2d error = getLamniscate(t) - tracking_pos;
+    Eigen::Vector2d error = followed_point - tracking_pos;
 
     // estimate feedforward velocity
     double dt = (double)LOOP_DT_MS / 1000.0;
@@ -93,6 +118,26 @@ private:
     // get result velocity command
     Eigen::Vector2d result_vel = VEL_GAIN * error + ff_vel;
     sendVelocity(result_vel);
+  }
+
+  void startCallback(
+    const std_srvs::srv::SetBool::Request::SharedPtr request,
+    std_srvs::srv::SetBool::Response::SharedPtr response)
+  {
+    active = request->data;
+
+    if (active)
+    {
+      is_first_iteration = true;
+      response->message = "Parametric curve started.";
+    }
+    else
+    {
+      sendVelocity(Eigen::Vector2d::Zero());
+      response->message = "Parametric curve stopped.";
+    }
+
+    response->success = true;
   }
 
   // ------------------ Utility Functions ---------------------
@@ -145,6 +190,34 @@ private:
     cmd_vel_pub->publish(vel_twist);
   }
 
+  void publishFollowedPoint(const Eigen::Vector2d &point)
+  {
+    visualization_msgs::msg::Marker marker;
+
+    marker.header.frame_id = "odom";
+    marker.header.stamp = this->now();
+    marker.ns = "parametric_curve";
+    marker.id = 0;
+    marker.type = visualization_msgs::msg::Marker::SPHERE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+
+    marker.pose.position.x = point.x();
+    marker.pose.position.y = point.y();
+    marker.pose.position.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    marker.scale.x = 0.18;
+    marker.scale.y = 0.18;
+    marker.scale.z = 0.18;
+
+    marker.color.r = 1.0;
+    marker.color.g = 0.0;
+    marker.color.b = 0.0;
+    marker.color.a = 1.0;
+
+    followed_point_pub->publish(marker);
+  }
+
   Eigen::Vector2d getLamniscate(double t)
   {
     double a = 3.0;
@@ -162,6 +235,8 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr            path_pub;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr followed_point_pub;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr           start_srv;
   rclcpp::TimerBase::SharedPtr                                 control_timer;
 
   // robot and goal
@@ -172,10 +247,11 @@ private:
   // time tracking
   rclcpp::Time t_start;
   bool         is_first_iteration = true;
+  bool         active = false;
 
   // consts
   const double D = 0.05;
-  const double VEL_GAIN = 3.0;
+  const double VEL_GAIN = 1.5;
   const int    LOOP_DT_MS = 100;
   const double PI = 3.14159265358979323846;
   const double TRAJECTORY_FREQ = 0.1;
