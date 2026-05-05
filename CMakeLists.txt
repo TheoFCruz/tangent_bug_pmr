@@ -18,10 +18,12 @@ find_package(eigen3_cmake_module REQUIRED)         # Odometry
 find_package(Eigen3 REQUIRED)
 
 # Executables
-include_directories(include)
-
 add_executable(tangent_bug
   src/tangent_bug.cpp
+)
+target_include_directories(tangent_bug
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 ament_target_dependencies(tangent_bug
   rclcpp
@@ -35,6 +37,10 @@ ament_target_dependencies(tangent_bug
 add_executable(parametric_curve
   src/parametric_curve.cpp
 )
+target_include_directories(parametric_curve
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 ament_target_dependencies(parametric_curve
   rclcpp
   geometry_msgs
@@ -46,6 +52,10 @@ ament_target_dependencies(parametric_curve
 
 add_executable(potential_function
   src/potential_function.cpp
+)
+target_include_directories(potential_function
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 ament_target_dependencies(potential_function
   rclcpp
@@ -63,6 +73,11 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(DIRECTORY
+  include/
+  DESTINATION include
+)
+
 install(DIRECTORY 
   launch
   description
@@ -77,5 +92,7 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+ament_export_include_directories(include)
 
 ament_package()

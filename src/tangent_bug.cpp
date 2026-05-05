@@ -5,7 +5,8 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
-#include <visualization_msgs/msg/marker.hpp>
+
+#include "pmr_tp1/visualizer.hpp"
 
 #include <eigen3/Eigen/Dense>
 
@@ -15,8 +16,7 @@
 class TangentBug : public rclcpp::Node
 {
 public:
-  TangentBug()
-  : Node("tangent_bug")
+  TangentBug() : Node("tangent_bug"), visualizer(this)
   {
     // publishes and subscribers
     laser_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
@@ -39,11 +39,6 @@ public:
 
     cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>(
       "/cmd_vel",
-      10
-    );
-
-    discontinuities_pub = this->create_publisher<visualization_msgs::msg::Marker>(
-      "/discontinuities",
       10
     );
 
@@ -141,7 +136,7 @@ private:
 
     // get discontinuity points 
     std::vector<Eigen::Vector2d> discontinuities = getDiscontinuities();
-    publishDiscontinuities(discontinuities);
+    visualizer.publishPointsArray("/discontinuities", discontinuities, "map");
 
     // calculate the heuristic to determine the best discontinuity point
     Eigen::Vector2d result_point = calculateHeuristic(discontinuities);
@@ -356,37 +351,6 @@ private:
     return discontinuities;
   }
 
-  void publishDiscontinuities(const std::vector<Eigen::Vector2d> &discontinuities)
-  {
-    visualization_msgs::msg::Marker marker;
-
-    marker.header.frame_id = "map";
-    marker.header.stamp = this->now();
-    marker.ns = "tangent_bug";
-    marker.id = 0;
-    marker.type = visualization_msgs::msg::Marker::POINTS;
-    marker.action = visualization_msgs::msg::Marker::ADD;
-
-    marker.scale.x = 0.12;
-    marker.scale.y = 0.12;
-
-    marker.color.r = 1.0;
-    marker.color.g = 0.0;
-    marker.color.b = 0.0;
-    marker.color.a = 1.0;
-
-    for (const auto& discontinuity : discontinuities)
-    {
-      geometry_msgs::msg::Point point;
-      point.x = discontinuity.x();
-      point.y = discontinuity.y();
-      point.z = 0.0;
-      marker.points.push_back(point);
-    }
-
-    discontinuities_pub->publish(marker);
-  }
-
   Eigen::Vector2d getClosestObstToGoal()
   {
     if (laser_points.empty()) return robot_pos;
@@ -441,8 +405,9 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr   goal_sub;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr discontinuities_pub;
   rclcpp::TimerBase::SharedPtr                                 control_timer;
+
+  Visualizer                                                    visualizer;
 
   // laser points vector
   std::vector<Eigen::Vector2d> laser_points; 

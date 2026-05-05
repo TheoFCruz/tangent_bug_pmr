@@ -1,12 +1,11 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <nav_msgs/msg/odometry.hpp>
-#include <nav_msgs/msg/path.hpp>
-#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <std_srvs/srv/set_bool.hpp>
-#include <visualization_msgs/msg/marker.hpp>
+
+#include "pmr_tp1/visualizer.hpp"
 
 #include <eigen3/Eigen/Dense>
 
@@ -19,8 +18,7 @@
 class ParametricCurve : public rclcpp::Node
 {
 public:
-  ParametricCurve()
-  : Node("parametric_curve")
+  ParametricCurve() : Node("parametric_curve"), visualizer(this)
   {
     // publishers and subscribers
     odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -31,16 +29,6 @@ public:
 
     cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>(
       "/cmd_vel",
-      10
-    );
-
-    path_pub = this->create_publisher<nav_msgs::msg::Path>(
-      "/parametric_curve/path",
-      rclcpp::QoS(1).transient_local().reliable()
-    );
-
-    followed_point_pub = this->create_publisher<visualization_msgs::msg::Marker>(
-      "/parametric_curve/followed_point",
       10
     );
 
@@ -105,7 +93,15 @@ private:
     tracking_pos.y() = robot_pos.y() + D * std::sin(robot_yaw);
 
     Eigen::Vector2d followed_point = getLamniscate(t);
-    publishFollowedPoint(followed_point);
+    visualizer.publishPoint(
+      "/parametric_curve/followed_point",
+      followed_point,
+      "odom",
+      0,
+      1.0,
+      0.0,
+      0.0
+    );
 
     // get position error
     Eigen::Vector2d error = followed_point - tracking_pos;
@@ -143,14 +139,11 @@ private:
   // ------------------ Utility Functions ---------------------
 
   void publishPath() {
-    nav_msgs::msg::Path path;
-    path.header.stamp = this->now();
-    path.header.frame_id = "odom";
-
     double dt = (double)LOOP_DT_MS / 1000.0;
     int num_samples = (int)std::ceil(T / dt);
 
-    path.poses.reserve(num_samples + 1);
+    std::vector<Eigen::Vector2d> path_points;
+    path_points.reserve(num_samples + 1);
 
     for (int i = 0; i <= num_samples; ++i) {
       double t = i * dt;
@@ -159,18 +152,10 @@ private:
       }
 
       Eigen::Vector2d point = getLamniscate(t);
-
-      geometry_msgs::msg::PoseStamped pose;
-      pose.header = path.header;
-      pose.pose.position.x = point.x();
-      pose.pose.position.y = point.y();
-      pose.pose.position.z = 0.0;
-      pose.pose.orientation.w = 1.0;
-
-      path.poses.push_back(pose);
+      path_points.push_back(point);
     }
 
-    path_pub->publish(path);
+    visualizer.publishPath(path_points, "odom");
   }
 
   void sendVelocity(Eigen::Vector2d vel)
@@ -190,34 +175,6 @@ private:
     cmd_vel_pub->publish(vel_twist);
   }
 
-  void publishFollowedPoint(const Eigen::Vector2d &point)
-  {
-    visualization_msgs::msg::Marker marker;
-
-    marker.header.frame_id = "odom";
-    marker.header.stamp = this->now();
-    marker.ns = "parametric_curve";
-    marker.id = 0;
-    marker.type = visualization_msgs::msg::Marker::SPHERE;
-    marker.action = visualization_msgs::msg::Marker::ADD;
-
-    marker.pose.position.x = point.x();
-    marker.pose.position.y = point.y();
-    marker.pose.position.z = 0.0;
-    marker.pose.orientation.w = 1.0;
-
-    marker.scale.x = 0.18;
-    marker.scale.y = 0.18;
-    marker.scale.z = 0.18;
-
-    marker.color.r = 1.0;
-    marker.color.g = 0.0;
-    marker.color.b = 0.0;
-    marker.color.a = 1.0;
-
-    followed_point_pub->publish(marker);
-  }
-
   Eigen::Vector2d getLamniscate(double t)
   {
     double a = 3.0;
@@ -234,10 +191,10 @@ private:
 
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr            path_pub;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr followed_point_pub;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr           start_srv;
   rclcpp::TimerBase::SharedPtr                                 control_timer;
+
+  Visualizer                                                    visualizer;
 
   // robot and goal
   Eigen::Vector2d goal;
@@ -251,7 +208,7 @@ private:
 
   // consts
   const double D = 0.05;
-  const double VEL_GAIN = 1.5;
+  const double VEL_GAIN = 1.0;
   const int    LOOP_DT_MS = 100;
   const double PI = 3.14159265358979323846;
   const double TRAJECTORY_FREQ = 0.1;
