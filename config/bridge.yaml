@@ -5,26 +5,10 @@
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
 
-# gz topic published by Sensors plugin
-- ros_topic_name: "scan"
-  gz_topic_name: "scan"
-  ros_type_name: "sensor_msgs/msg/LaserScan"
-  gz_type_name: "gz.msgs.LaserScan"
-  direction: GZ_TO_ROS
-  ros_qos_info:
-    reliability: BEST_EFFORT
-    durability: VOLATILE
-    history: KEEP_LAST
-    depth: 5
-
 - ros_topic_name: "/tf"
   gz_topic_name: "/tf"
   ros_type_name: "tf2_msgs/msg/TFMessage"
   gz_type_name: "gz.msgs.Pose_V"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "/odom"
-  gz_topic_name: "/odom"
-  ros_type_name: "nav_msgs/msg/Odometry"
-  gz_type_name: "gz.msgs.Odometry"
-  direction: GZ_TO_ROS
+# NOTE: scan and odom bridges are created per robot dinamically to account for namespaces

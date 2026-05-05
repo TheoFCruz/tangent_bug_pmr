@@ -291,16 +291,6 @@
         <update_frequency>62</update_frequency>
       </plugin>
     </gazebo>
-
-    <gazebo>
-      <plugin filename="libgz-sim-contact-system.so" name="gz::sim::systems::Contact"></plugin>
-    </gazebo>
-
-    <gazebo>
-      <plugin filename="libgz-sim-sensors-system.so" name="gz::sim::systems::Sensors">
-        <render_engine>ogre2</render_engine>
-      </plugin>
-    </gazebo>
   </xacro:if>
 </robot>
 
