@@ -181,25 +181,6 @@ private:
           // Initialize last_heuristic for continuity
           last_heuristic = result_point;
 
-          // Get the two discontinuities of the followed obstacle
-          if (updateFollowedDiscontinuities(discontinuities))
-          {
-            Eigen::Vector2d relative_start = followed_start - robot_pos;
-            Eigen::Vector2d relative_end = followed_end - robot_pos;
-
-            double start_angle = std::atan2(relative_start.y(), relative_start.x()) - robot_yaw;
-            double end_angle = std::atan2(relative_end.y(), relative_end.x()) - robot_yaw;
-
-            const double PI = std::acos(-1.0);
-            while (start_angle > PI) start_angle -= 2.0 * PI;
-            while (start_angle < -PI) start_angle += 2.0 * PI;
-            while (end_angle > PI) end_angle -= 2.0 * PI;
-            while (end_angle < -PI) end_angle += 2.0 * PI;
-
-            following_start = std::abs(start_angle) <= std::abs(end_angle);
-            last_heuristic = following_start ? followed_start : followed_end;
-          }
-
           // change state
           current_state = State::BOUNDARY_FOLLOWING;
         }
@@ -211,26 +192,16 @@ private:
 
       case State::BOUNDARY_FOLLOWING:
         {
-          // Update the two discontinuities of the followed obstacle
-          bool found_followed_discontinuities = updateFollowedDiscontinuities(discontinuities);
-
           // get discontinuity closest to the one it was following
           Eigen::Vector2d disc = result_point;
-          if (found_followed_discontinuities)
+          double min_dist = 1e9;
+          for (const auto& point : discontinuities)
           {
-            disc = following_start ? followed_start : followed_end;
-          }
-          else
-          {
-            double min_dist = 1e9;
-            for (const auto& point : discontinuities)
+            double dist = (point - last_heuristic).norm();
+            if (dist < min_dist)
             {
-              double dist = (point - last_heuristic).norm();
-              if (dist < min_dist)
-              {
-                disc = point;
-                min_dist = dist;
-              }
+              disc = point;
+              min_dist = dist;
             }
           }
 
@@ -442,49 +413,6 @@ private:
     return M;
   }
 
-  bool updateFollowedDiscontinuities(const std::vector<Eigen::Vector2d> &discontinuities)
-  {
-    if (discontinuities.size() < 2) return false;
-
-    Eigen::Vector2d relative_closest = closest_point - robot_pos;
-    double closest_angle = std::atan2(relative_closest.y(), relative_closest.x()) - robot_yaw;
-
-    const double PI = std::acos(-1.0);
-    while (closest_angle > PI) closest_angle -= 2.0 * PI;
-    while (closest_angle < -PI) closest_angle += 2.0 * PI;
-
-    double min_start_diff = 1e9;
-    double min_end_diff = 1e9;
-    bool found_start = false;
-    bool found_end = false;
-
-    for (const auto& discontinuity : discontinuities)
-    {
-      Eigen::Vector2d relative_discontinuity = discontinuity - robot_pos;
-      double angle_diff =
-        std::atan2(relative_discontinuity.y(), relative_discontinuity.x()) - robot_yaw -
-        closest_angle;
-
-      while (angle_diff > PI) angle_diff -= 2.0 * PI;
-      while (angle_diff < -PI) angle_diff += 2.0 * PI;
-
-      if (angle_diff <= 0 && std::abs(angle_diff) < min_start_diff)
-      {
-        followed_start = discontinuity;
-        min_start_diff = std::abs(angle_diff);
-        found_start = true;
-      }
-      else if (angle_diff > 0 && angle_diff < min_end_diff)
-      {
-        followed_end = discontinuity;
-        min_end_diff = angle_diff;
-        found_end = true;
-      }
-    }
-
-    return found_start && found_end;
-  }
-
   Eigen::Vector2d calculateHeuristic(std::vector<Eigen::Vector2d> &discontinuities)
   {
     if (discontinuities.empty()) return goal;
@@ -534,12 +462,9 @@ private:
   // state machine variables
   Eigen::Vector2d  last_heuristic;
   Eigen::Vector2d  M_point;
-  Eigen::Vector2d  followed_start;
-  Eigen::Vector2d  followed_end;
   State            current_state = State::MOTION_TO_GOAL;
   double           d_followed;
   double           d_reach;
-  bool             following_start = true;
   bool             check_unreachable = false;
 
   // consts
