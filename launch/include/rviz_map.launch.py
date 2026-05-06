@@ -9,7 +9,7 @@ def generate_launch_description():
     pmr_tp1_pkg = FindPackageShare('pmr_tp1')
 
     # Filepaths
-    default_map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'test_map.yaml'])
+    default_map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'bug_map.yaml'])
     default_rviz_config_path = PathJoinSubstitution([pmr_tp1_pkg, 'config', 'config.rviz'])
 
     # Arguments

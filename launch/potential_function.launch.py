@@ -10,7 +10,7 @@ def generate_launch_description():
     pmr_tp1_pkg = FindPackageShare('pmr_tp1')
 
     # Filepaths
-    default_map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'test_map.yaml'])
+    default_map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'bug_map.yaml'])
     default_rviz_config_path = PathJoinSubstitution([pmr_tp1_pkg, 'rviz', 'bug.rviz'])
 
     # Arguments
@@ -20,7 +20,7 @@ def generate_launch_description():
 
     declare_world = DeclareLaunchArgument(
         'world',
-        default_value='test_map.sdf',
+        default_value='bug_map.sdf',
         description='Gazebo world name'
     )
     declare_map_path = DeclareLaunchArgument(
@@ -74,4 +74,3 @@ def generate_launch_description():
     ld.add_action(potential_function_node)
 
     return ld
-

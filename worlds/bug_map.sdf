@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
 
-  <world name="test_map_world">
+  <world name="bug_map_world">
     <plugin filename="gz-sim-physics-system"
       name="gz::sim::systems::Physics"/>
     <plugin filename="gz-sim-user-commands-system"
@@ -22,21 +22,21 @@
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Sun</uri>
     </include>
 
-    <model name="test_map">
+    <model name="bug_map">
       <static>true</static>
       <pose>0 0 0 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
             <mesh>
-              <uri>meshes/test_map.stl</uri>
+              <uri>meshes/bug_map.stl</uri>
             </mesh>
           </geometry>
         </collision>
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>meshes/test_map.stl</uri>
+              <uri>meshes/bug_map.stl</uri>
             </mesh>
           </geometry>
           <material>
