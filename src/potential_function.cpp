@@ -25,6 +25,12 @@ public:
       std::bind(&PotentialFunction::odomCallback, this, std::placeholders::_1)
     );
 
+    goal_sub = this->create_subscription<geometry_msgs::msg::Point>(
+      "/goal",
+      10,
+      std::bind(&PotentialFunction::goalCallback, this, std::placeholders::_1)
+    );
+
     cmd_vel_pub = this->create_publisher<geometry_msgs::msg::Twist>(
       "/cmd_vel",
       10
@@ -97,11 +103,53 @@ private:
     double siny_cosp = 2.0 * (w * z + x * y);
     double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
     robot_yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    if (goal_received && (robot_pos - goal).norm() <= TOLERANCE)
+    {
+      RCLCPP_INFO(this->get_logger(), "Goal reached. Stopping control loop");
+      sendVelocity(Eigen::Vector2d::Zero());
+      goal_received = false;
+    }
+  }
+
+  void goalCallback(geometry_msgs::msg::Point::SharedPtr msg)
+  {
+    RCLCPP_INFO(this->get_logger(), "Received goal: (%.2lf, %.2lf)", msg->x, msg->y);
+    goal = Eigen::Vector2d(msg->x, msg->y);
+    goal_received = true;
   }
 
   void controlLoop()
   {
-    // TODO: implement potential function control
+    if (!goal_received) return; 
+
+    // Forca atrativa
+    Eigen::Vector2d q_diff = robot_pos - goal;
+    double dist_to_goal = q_diff.norm();
+    Eigen::Vector2d grad_U_att;
+
+    if (dist_to_goal <= D_ESTRELA) {
+        // Quadratico: robo esta perto
+        grad_U_att = ZETA * q_diff;
+    } else {
+        // Conico: robo esta longe
+        grad_U_att = (D_ESTRELA * ZETA * q_diff) / dist_to_goal;
+    }
+
+    Eigen::Vector2d f_att = -grad_U_att;
+
+    // Forca repulsiva
+    Eigen::Vector2d f_rep(0, 0);
+    double dist = (robot_pos - closest_point).norm();
+
+    if (dist < Q_ESTRELA) {
+        Eigen::Vector2d rep_dir = (robot_pos - closest_point).normalized();
+        f_rep = ETA * (1.0/dist - 1.0/Q_ESTRELA) * (1.0/(dist * dist)) * rep_dir;
+    }
+    
+    Eigen::Vector2d f_total = f_att + f_rep;
+    if (f_total.norm() > MAX_VEL) f_total = f_total.normalized() * MAX_VEL;
+    sendVelocity(f_total);
   }
 
   // ------------------ Utility Functions ---------------------
@@ -127,6 +175,7 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
+  rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr   goal_sub;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
   rclcpp::TimerBase::SharedPtr                                 control_timer;
 
@@ -134,13 +183,22 @@ private:
   std::vector<Eigen::Vector2d> laser_points;
   Eigen::Vector2d              closest_point;
 
-  // robot pose
+  // robot and goal
+  Eigen::Vector2d goal;
   Eigen::Vector2d robot_pos;
   double          robot_yaw;
+  bool            goal_received = false; 
 
   // consts
-  const double D = 0.05;
   const int    LOOP_DT_MS = 100;
+  const double TOLERANCE = 0.05;
+  const double D = 0.05;
+  const double ZETA = 12;
+  const double ETA = 1.3;
+  const double MAX_VEL = 1; 
+  const double D_ESTRELA = 1.5;
+  const double Q_ESTRELA = 1.4;
+
 };
 
 int main(int argc, char ** argv)
