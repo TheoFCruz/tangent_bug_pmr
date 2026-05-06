@@ -43,7 +43,7 @@
       <visualize>true</visualize>
       <always_on>true</always_on>
       <topic>$(arg namespace)/scan</topic>
-      <gz_frame_id>$(arg namespace)/lidar_link</gz_frame_id>
+      <gz_frame_id>${'lidar_link' if '$(arg namespace)' == '' else '$(arg namespace)/lidar_link'}</gz_frame_id>
       <lidar>
         <scan>
           <horizontal>

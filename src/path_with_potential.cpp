@@ -9,7 +9,6 @@
 #include <eigen3/Eigen/Dense>
 
 #include <cmath>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -137,14 +136,13 @@ private:
     odom_received = true;
   }
 
-  void otherOdomCallback(
-    int other_robot_id,
-    const nav_msgs::msg::Odometry::SharedPtr msg)
+  void otherOdomCallback(size_t index, const nav_msgs::msg::Odometry::SharedPtr msg)
   {
-    other_robot_positions[other_robot_id] = Eigen::Vector2d(
+    other_robot_positions[index] = Eigen::Vector2d(
       msg->pose.pose.position.x,
       msg->pose.pose.position.y
     );
+    other_robot_odom_received[index] = true;
   }
 
   void controlLoop()
@@ -161,29 +159,28 @@ private:
 
   void createOtherRobotSubscriptions()
   {
+    other_robot_positions.clear();
+    other_robot_odom_received.clear();
+    other_odom_subs.clear();
+
     for (int id = 1; id <= num_robots; ++id)
     {
       if (id == robot_id) continue;
 
       std::string topic = "/robot_" + std::to_string(id) + "/odom";
+      size_t index = other_robot_positions.size();
+      other_robot_positions.push_back(Eigen::Vector2d::Zero());
+      other_robot_odom_received.push_back(false);
 
       other_odom_subs.push_back(
         this->create_subscription<nav_msgs::msg::Odometry>(
           topic,
           10,
-          [this, id](const nav_msgs::msg::Odometry::SharedPtr msg)
-          {
-            otherOdomCallback(id, msg);
-          }
+          [this, index](const nav_msgs::msg::Odometry::SharedPtr msg) {otherOdomCallback(index, msg);}
         )
       );
 
-      RCLCPP_INFO(
-        this->get_logger(),
-        "Subscribing to robot_%d odom on %s",
-        id,
-        topic.c_str()
-      );
+      RCLCPP_INFO(this->get_logger(), "Subscribing to robot_%d odom on %s", id, topic.c_str());
     }
   }
 
@@ -239,7 +236,35 @@ private:
 
   Eigen::Vector2d calculateRobotRepulsion()
   {
-    return Eigen::Vector2d::Zero();
+    Eigen::Vector2d repulsive_vel = Eigen::Vector2d::Zero();
+
+    for (size_t i = 0; i < other_robot_positions.size(); ++i)
+    {
+      if (!other_robot_odom_received[i]) continue;
+
+      Eigen::Vector2d diff = robot_pos - other_robot_positions[i];
+      double dist = diff.norm();
+
+      if (dist < 1e-6 || dist >= ROBOT_EFFECTIVE_RADIUS) continue;
+
+      repulsive_vel += ROBOT_REPULSION_GAIN *
+        (1.0 / dist - 1.0 / ROBOT_EFFECTIVE_RADIUS) *
+        diff / (dist * dist * dist);
+    }
+
+    if (repulsive_vel.norm() > 1e-6)
+    {
+      RCLCPP_INFO_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        1000,
+        "Robot repulsion velocity: x=%.3f y=%.3f",
+        repulsive_vel.x(),
+        repulsive_vel.y()
+      );
+    }
+
+    return repulsive_vel;
   }
 
   Eigen::Vector2d getLemniscate(double t)
@@ -320,7 +345,8 @@ private:
   // multi-robot
   int robot_id;
   int num_robots;
-  std::map<int, Eigen::Vector2d> other_robot_positions;
+  std::vector<Eigen::Vector2d> other_robot_positions;
+  std::vector<bool> other_robot_odom_received;
 
   // consts
   const double D = 0.05;
@@ -331,6 +357,8 @@ private:
   const double TRAJECTORY_FREQ = 0.1;
   const double T = 2.0 * PI / TRAJECTORY_FREQ;
   const double ROBOT_DELTA_T = 4.0;
+  const double ROBOT_EFFECTIVE_RADIUS = 0.8;
+  const double ROBOT_REPULSION_GAIN = 0.5;
 };
 
 int main(int argc, char ** argv)
