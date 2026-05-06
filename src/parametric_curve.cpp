@@ -177,12 +177,11 @@ private:
 
   Eigen::Vector2d getLamniscate(double t)
   {
-    double a = 3.0;
     double theta = TRAJECTORY_FREQ * t;
 
     Eigen::Vector2d result;
-    result.x() = a*sqrt(2)*cos(theta)/(sin(theta)*sin(theta) + 1);
-    result.y() = a*sqrt(2)*cos(theta)*sin(theta)/(sin(theta)*sin(theta) + 1);
+    result.x() = A*sqrt(2)*cos(theta)/(sin(theta)*sin(theta) + 1);
+    result.y() = A*sqrt(2)*cos(theta)*sin(theta)/(sin(theta)*sin(theta) + 1);
 
     return result;
   }
@@ -211,6 +210,7 @@ private:
   const double VEL_GAIN = 1.0;
   const int    LOOP_DT_MS = 100;
   const double PI = 3.14159265358979323846;
+  const double A = 3.0;
   const double TRAJECTORY_FREQ = 0.1;
   const double T = 2.0 * PI / TRAJECTORY_FREQ;
 };

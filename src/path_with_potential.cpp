@@ -4,6 +4,8 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
+#include "pmr_tp1/visualizer.hpp"
+
 #include <eigen3/Eigen/Dense>
 
 #include <cmath>
@@ -15,7 +17,7 @@ class PathWithPotential : public rclcpp::Node
 {
 public:
   PathWithPotential()
-  : Node("path_with_potential")
+  : Node("path_with_potential"), visualizer(this)
   {
     // node parameters
     robot_id = this->declare_parameter<int>("robot_id", 1);
@@ -52,6 +54,11 @@ public:
     );
 
     createOtherRobotSubscriptions();
+
+    if (robot_id == 1)
+    {
+      publishPath();
+    }
 
     // timer for the control loop
     control_timer = this->create_wall_timer(
@@ -127,6 +134,7 @@ private:
     double siny_cosp = 2.0 * (w * z + x * y);
     double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
     robot_yaw = std::atan2(siny_cosp, cosy_cosp);
+    odom_received = true;
   }
 
   void otherOdomCallback(
@@ -141,7 +149,12 @@ private:
 
   void controlLoop()
   {
-    // TODO: implement control logic
+    if (!odom_received) return;
+
+    Eigen::Vector2d trajectory_vel = calculateTrajectoryVelocity();
+    Eigen::Vector2d repulsive_vel = calculateRepulsiveVelocity();
+
+    sendVelocity(trajectory_vel + repulsive_vel);
   }
 
   // ------------------ Utility Functions ---------------------
@@ -174,6 +187,96 @@ private:
     }
   }
 
+  Eigen::Vector2d calculateTrajectoryVelocity()
+  {
+    if (is_first_iteration)
+    {
+      t_start = this->now();
+      is_first_iteration = false;
+    }
+
+    // reference time based on ID
+    rclcpp::Time t_current = this->now();
+    double t = (t_current - t_start).seconds();
+    double reference_t = t - (robot_id - 1) * ROBOT_DELTA_T;
+
+    // adjust reference to controlled point
+    Eigen::Vector2d tracking_pos;
+    tracking_pos.x() = robot_pos.x() + D * std::cos(robot_yaw);
+    tracking_pos.y() = robot_pos.y() + D * std::sin(robot_yaw);
+
+    // get reference point
+    Eigen::Vector2d followed_point = getLemniscate(reference_t);
+    visualizer.publishPoint(
+      "path_with_potential/followed_point",
+      followed_point,
+      "odom",
+      robot_id,
+      0.0,
+      1.0,
+      1.0
+    );
+
+    Eigen::Vector2d error = followed_point - tracking_pos;
+
+    // feedforward velocity
+    double dt = (double)LOOP_DT_MS / 1000.0;
+    Eigen::Vector2d d_pos = getLemniscate(reference_t + dt) - getLemniscate(reference_t - dt);
+    Eigen::Vector2d ff_vel = d_pos / (2.0 * dt);
+
+    return VEL_GAIN * error + ff_vel;
+  }
+
+  Eigen::Vector2d calculateRepulsiveVelocity()
+  {
+    return calculateObstacleRepulsion() + calculateRobotRepulsion();
+  }
+
+  Eigen::Vector2d calculateObstacleRepulsion()
+  {
+    return Eigen::Vector2d::Zero();
+  }
+
+  Eigen::Vector2d calculateRobotRepulsion()
+  {
+    return Eigen::Vector2d::Zero();
+  }
+
+  Eigen::Vector2d getLemniscate(double t)
+  {
+    double theta = TRAJECTORY_FREQ * t;
+
+    Eigen::Vector2d result;
+    result.x() = A * std::sqrt(2) * std::cos(theta) /
+      (std::sin(theta) * std::sin(theta) + 1);
+    result.y() = A * std::sqrt(2) * std::cos(theta) * std::sin(theta) /
+      (std::sin(theta) * std::sin(theta) + 1);
+
+    return result;
+  }
+
+  void publishPath()
+  {
+    double dt = (double)LOOP_DT_MS / 1000.0;
+    int num_samples = (int)std::ceil(T / dt);
+
+    std::vector<Eigen::Vector2d> path_points;
+    path_points.reserve(num_samples + 1);
+
+    for (int i = 0; i <= num_samples; ++i)
+    {
+      double t = i * dt;
+      if (t > T)
+      {
+        t = T;
+      }
+
+      path_points.push_back(getLemniscate(t));
+    }
+
+    visualizer.publishPath(path_points, "odom");
+  }
+
   void sendVelocity(Eigen::Vector2d vel)
   {
     double v_x = vel.x();
@@ -193,12 +296,13 @@ private:
 
   // --------------------- Variables --------------------------
 
-  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub;
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr     odom_sub;
-  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr>
-                                                                  other_odom_subs;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
-  rclcpp::TimerBase::SharedPtr                                 control_timer;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr          laser_sub;       
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr              odom_sub;        
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr               cmd_vel_pub;     
+  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> other_odom_subs; 
+  rclcpp::TimerBase::SharedPtr                                          control_timer;   
+
+  Visualizer                                                            visualizer;
 
   // laser points vector
   std::vector<Eigen::Vector2d> laser_points;
@@ -207,6 +311,11 @@ private:
   // robot pose
   Eigen::Vector2d robot_pos;
   double          robot_yaw;
+  bool            odom_received = false;
+
+  // trajectory tracking
+  rclcpp::Time t_start;
+  bool         is_first_iteration = true;
 
   // multi-robot
   int robot_id;
@@ -215,7 +324,13 @@ private:
 
   // consts
   const double D = 0.05;
+  const double VEL_GAIN = 1.5;
   const int    LOOP_DT_MS = 100;
+  const double PI = 3.14159265358979323846;
+  const double A = 3.0;
+  const double TRAJECTORY_FREQ = 0.1;
+  const double T = 2.0 * PI / TRAJECTORY_FREQ;
+  const double ROBOT_DELTA_T = 4.0;
 };
 
 int main(int argc, char ** argv)

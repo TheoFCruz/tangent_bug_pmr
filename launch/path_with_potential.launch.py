@@ -13,11 +13,23 @@ def generate_launch_description():
 
     # Arguments
     world_name = LaunchConfiguration('world')
+    map_path = LaunchConfiguration('map_path')
+    rviz_config_path = LaunchConfiguration('rviz_config_path')
 
     declare_world = DeclareLaunchArgument(
         'world',
         default_value='empty.sdf',
         description='Gazebo world name'
+    )
+    declare_map_path = DeclareLaunchArgument(
+        'map_path',
+        default_value=PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'empty_map.yaml']),
+        description='Path to the map YAML file'
+    )
+    declare_rviz_config_path = DeclareLaunchArgument(
+        'rviz_config_path',
+        default_value=PathJoinSubstitution([pmr_tp1_pkg, 'rviz', 'path_with_potential.rviz']),
+        description='Path to the RViz configuration file'
     )
 
     # Filepaths
@@ -25,6 +37,9 @@ def generate_launch_description():
     bridge_file = PathJoinSubstitution([pmr_tp1_pkg, 'config', 'bridge.yaml'])
     spawn_launch_file = PathJoinSubstitution(
         [pmr_tp1_pkg, 'launch', 'include', 'spawn_create3.launch.py']
+    )
+    rviz_map_launch_file = PathJoinSubstitution(
+        [pmr_tp1_pkg, 'launch', 'include', 'rviz_map.launch.py']
     )
 
     # Gazebo
@@ -49,6 +64,14 @@ def generate_launch_description():
         output='screen'
     )
 
+    rviz_map = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(rviz_map_launch_file),
+        launch_arguments={
+            'map_path': map_path,
+            'rviz_config_path': rviz_config_path
+        }.items()
+    )
+
     robot_configs = [
         {'id': 1, 'name': 'robot_1', 'x': '1.0',  'y': '1.0'},
         {'id': 2, 'name': 'robot_2', 'x': '-1.0', 'y': '1.0'},
@@ -58,8 +81,11 @@ def generate_launch_description():
 
     ld = LaunchDescription()
     ld.add_action(declare_world)
+    ld.add_action(declare_map_path)
+    ld.add_action(declare_rviz_config_path)
     ld.add_action(gazebo)
     ld.add_action(bridge)
+    ld.add_action(rviz_map)
 
     for config in robot_configs:
         spawn_robot = IncludeLaunchDescription(
