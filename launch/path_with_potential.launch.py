@@ -13,7 +13,7 @@ def generate_launch_description():
 
     # Arguments
     world_name = LaunchConfiguration('world')
-    map_path = LaunchConfiguration('map_path')
+    map_name = LaunchConfiguration('map_name')
     rviz_config_path = LaunchConfiguration('rviz_config_path')
 
     declare_world = DeclareLaunchArgument(
@@ -21,10 +21,10 @@ def generate_launch_description():
         default_value='pot_func_map.sdf',
         description='Gazebo world name'
     )
-    declare_map_path = DeclareLaunchArgument(
-        'map_path',
-        default_value=PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'pot_func_map.yaml']),
-        description='Path to the map YAML file'
+    declare_map_name = DeclareLaunchArgument(
+        'map_name',
+        default_value='pot_func_map.yaml',
+        description='Map YAML file name'
     )
     declare_rviz_config_path = DeclareLaunchArgument(
         'rviz_config_path',
@@ -67,7 +67,7 @@ def generate_launch_description():
     rviz_map = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(rviz_map_launch_file),
         launch_arguments={
-            'map_path': map_path,
+            'map_name': map_name,
             'rviz_config_path': rviz_config_path
         }.items()
     )
@@ -81,7 +81,7 @@ def generate_launch_description():
 
     ld = LaunchDescription()
     ld.add_action(declare_world)
-    ld.add_action(declare_map_path)
+    ld.add_action(declare_map_name)
     ld.add_action(declare_rviz_config_path)
     ld.add_action(gazebo)
     ld.add_action(bridge)

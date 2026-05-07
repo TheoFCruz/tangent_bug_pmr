@@ -10,12 +10,12 @@ def generate_launch_description():
     pmr_tp1_pkg = FindPackageShare('pmr_tp1')
 
     # Filepaths
-    default_map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'pot_func_map.yaml'])
+    default_map_name = 'pot_func_map.yaml'
     default_rviz_config_path = PathJoinSubstitution([pmr_tp1_pkg, 'rviz', 'bug.rviz'])
 
     # Arguments
     world_name = LaunchConfiguration('world')
-    map_path = LaunchConfiguration('map_path')
+    map_name = LaunchConfiguration('map_name')
     rviz_config_path = LaunchConfiguration('rviz_config_path')
 
     declare_world = DeclareLaunchArgument(
@@ -23,10 +23,10 @@ def generate_launch_description():
         default_value='pot_func_map.sdf',
         description='Gazebo world name'
     )
-    declare_map_path = DeclareLaunchArgument(
-        'map_path',
-        default_value=default_map_path,
-        description='Path to the map YAML file'
+    declare_map_name = DeclareLaunchArgument(
+        'map_name',
+        default_value=default_map_name,
+        description='Map YAML file name'
     )
     declare_rviz_config_path = DeclareLaunchArgument(
         'rviz_config_path',
@@ -47,7 +47,7 @@ def generate_launch_description():
             PathJoinSubstitution([pmr_tp1_pkg, 'launch', 'include', 'rviz_map.launch.py'])
         ),
         launch_arguments={
-            'map_path': map_path,
+            'map_name': map_name,
             'rviz_config_path': rviz_config_path
         }.items()
     )
@@ -65,7 +65,7 @@ def generate_launch_description():
 
     # Add arguments
     ld.add_action(declare_world)
-    ld.add_action(declare_map_path)
+    ld.add_action(declare_map_name)
     ld.add_action(declare_rviz_config_path)
 
     # Add actions

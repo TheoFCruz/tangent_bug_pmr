@@ -374,10 +374,10 @@ private:
   const double TRAJECTORY_FREQ = 0.08;
   const double T = 2.0 * PI / TRAJECTORY_FREQ;
   const double ROBOT_DELTA_T = 8.0;
-  const double ROBOT_EFFECTIVE_RADIUS = 1.0;
-  const double ROBOT_REPULSION_GAIN = 0.5;
+  const double ROBOT_EFFECTIVE_RADIUS = 1.5;
+  const double ROBOT_REPULSION_GAIN = 0.3;
   const double ETA = 1.3;
-  const double Q_ESTRELA = 1.4;
+  const double Q_ESTRELA = 1.0;
 };
 
 int main(int argc, char ** argv)

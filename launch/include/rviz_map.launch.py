@@ -9,17 +9,17 @@ def generate_launch_description():
     pmr_tp1_pkg = FindPackageShare('pmr_tp1')
 
     # Filepaths
-    default_map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', 'bug_map.yaml'])
+    default_map_name = 'bug_map.yaml'
     default_rviz_config_path = PathJoinSubstitution([pmr_tp1_pkg, 'config', 'config.rviz'])
 
     # Arguments
-    map_path = LaunchConfiguration('map_path')
+    map_name = LaunchConfiguration('map_name')
     rviz_config_path = LaunchConfiguration('rviz_config_path')
 
-    declare_map_path = DeclareLaunchArgument(
-        'map_path',
-        default_value=default_map_path,
-        description='Path to the map YAML file'
+    declare_map_name = DeclareLaunchArgument(
+        'map_name',
+        default_value=default_map_name,
+        description='Map YAML file name'
     )
 
     declare_rviz_config_path = DeclareLaunchArgument(
@@ -27,6 +27,8 @@ def generate_launch_description():
         default_value=default_rviz_config_path,
         description='Path to the RViz configuration file'
     )
+
+    map_path = PathJoinSubstitution([pmr_tp1_pkg, 'maps', map_name])
 
     # Map Server
     map_server = Node(
@@ -75,7 +77,7 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     # Add arguments
-    ld.add_action(declare_map_path)
+    ld.add_action(declare_map_name)
     ld.add_action(declare_rviz_config_path)
 
     # Add nodes

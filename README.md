@@ -36,8 +36,8 @@ ros2 topic pub --once /goal geometry_msgs/msg/Point "{x: 2.0, y: 0.0, z: 0.0}"
 Optional launch arguments:
 
 ```bash
-ros2 launch pmr_tp1 tangent_bug.launch.py world:=test_map.sdf
-ros2 launch pmr_tp1 tangent_bug.launch.py map_path:=/absolute/path/to/map.yaml
+ros2 launch pmr_tp1 tangent_bug.launch.py world:=bug_map.sdf
+ros2 launch pmr_tp1 tangent_bug.launch.py map_name:=bug_map.yaml
 ros2 launch pmr_tp1 tangent_bug.launch.py rviz_config_path:=/absolute/path/to/config.rviz
 ```
 
@@ -95,10 +95,34 @@ Optional launch arguments:
 
 ```bash
 ros2 launch pmr_tp1 path_with_potential.launch.py world:=empty.sdf
-ros2 launch pmr_tp1 path_with_potential.launch.py map_path:=/absolute/path/to/map.yaml
+ros2 launch pmr_tp1 path_with_potential.launch.py map_name:=empty_map.yaml
 ros2 launch pmr_tp1 path_with_potential.launch.py rviz_config_path:=/absolute/path/to/config.rviz
 ```
 
 ## Potential Function
 
-Placeholder: add launch and interaction instructions after the potential function experiment is finalized.
+Launch the simulation, RViz, map server, and potential function node:
+
+```bash
+ros2 launch pmr_tp1 potential_function.launch.py
+```
+
+Send a goal:
+
+```bash
+ros2 topic pub --once /goal geometry_msgs/msg/Point "{x: 2.0, y: 0.0, z: 0.0}"
+```
+
+The node combines an attractive velocity toward the goal with a repulsive
+velocity from the closest laser obstacle. The attractive term is quadratic near
+the goal and conic farther away. The repulsive term is applied only inside the
+obstacle influence distance. The final velocity is saturated and converted to
+`/cmd_vel` with feedback linearization.
+
+Optional launch arguments:
+
+```bash
+ros2 launch pmr_tp1 potential_function.launch.py world:=pot_func_map.sdf
+ros2 launch pmr_tp1 potential_function.launch.py map_name:=pot_func_map.yaml
+ros2 launch pmr_tp1 potential_function.launch.py rviz_config_path:=/absolute/path/to/config.rviz
+```

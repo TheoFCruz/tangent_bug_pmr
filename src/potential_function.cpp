@@ -197,7 +197,7 @@ private:
   const double ETA = 1.3;
   const double MAX_VEL = 1; 
   const double D_ESTRELA = 1.5;
-  const double Q_ESTRELA = 1.4;
+  const double Q_ESTRELA = 1.0;
 
 };
 
