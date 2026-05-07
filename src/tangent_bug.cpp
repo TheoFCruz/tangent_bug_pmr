@@ -290,15 +290,11 @@ private:
     Eigen::Vector2d n = (closest_point - robot_pos).normalized();
     double projection = desired_vel.dot(n);
 
-    // HACK: AI black magic that must be revised
-    
-    // Radial correction velocity (P-controller)
-    // If range < SAFE_RADIUS, this is negative (away from obstacle)
-    // If range > SAFE_RADIUS, this is positive (towards obstacle)
+    // radial correction
     double dist_gain = 0.5; 
     double v_radial_corr = - dist_gain * (SAFE_RADIUS - range);
 
-    // We take the minimum (most 'away') of the desired and correction components.
+    // Take the minimum (most 'away') of the desired and correction components.
     // This ensures we always move away if too close, and never move in faster than
     // the soft boundary allows when approaching the safe radius.
     double v_radial = std::min(projection, v_radial_corr);
@@ -431,7 +427,7 @@ private:
   // consts
   const double SPEED = 0.5;
   const double SAFE_RADIUS = 0.5;
-  const double D = 0.05;
+  const double D = 0.1;
   const double DISC_THRESHOLD = 1.0;
   const double TOLERANCE = 0.05;
   const double HYSTERESIS = 0.05;

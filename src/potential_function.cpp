@@ -3,6 +3,9 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/point.hpp>
+
+#include "pmr_tp1/visualizer.hpp"
 
 #include <eigen3/Eigen/Dense>
 
@@ -10,7 +13,7 @@ class PotentialFunction : public rclcpp::Node
 {
 public:
   PotentialFunction()
-  : Node("potential_function")
+  : Node("potential_function"), visualizer(this)
   {
     // publishers and subscribers
     laser_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
@@ -116,6 +119,7 @@ private:
   {
     RCLCPP_INFO(this->get_logger(), "Received goal: (%.2lf, %.2lf)", msg->x, msg->y);
     goal = Eigen::Vector2d(msg->x, msg->y);
+    visualizer.publishPoint("goal_marker", goal, "map", 0, 0.0, 1.0, 0.0);
     goal_received = true;
   }
 
@@ -178,6 +182,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr   goal_sub;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr      cmd_vel_pub;
   rclcpp::TimerBase::SharedPtr                                 control_timer;
+  Visualizer                                                    visualizer;
 
   // laser points vector
   std::vector<Eigen::Vector2d> laser_points;
@@ -192,7 +197,7 @@ private:
   // consts
   const int    LOOP_DT_MS = 100;
   const double TOLERANCE = 0.05;
-  const double D = 0.05;
+  const double D = 0.1;
   const double ZETA = 12;
   const double ETA = 1.3;
   const double MAX_VEL = 1; 

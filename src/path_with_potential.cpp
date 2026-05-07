@@ -366,7 +366,7 @@ private:
   std::vector<bool> other_robot_odom_received;
 
   // consts
-  const double D = 0.05;
+  const double D = 0.1;
   const double VEL_GAIN = 2.0;
   const int    LOOP_DT_MS = 100;
   const double PI = 3.14159265358979323846;

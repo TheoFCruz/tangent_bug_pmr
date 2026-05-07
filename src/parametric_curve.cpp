@@ -191,7 +191,7 @@ private:
   bool         active = false;
 
   // consts
-  const double D = 0.05;
+  const double D = 0.1;
   const double VEL_GAIN = 1.0;
   const int    LOOP_DT_MS = 100;
   const double PI = 3.14159265358979323846;

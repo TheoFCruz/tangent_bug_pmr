@@ -52,6 +52,7 @@ ament_target_dependencies(potential_function
   sensor_msgs
   geometry_msgs
   nav_msgs
+  visualization_msgs
   Eigen3
 )
 
